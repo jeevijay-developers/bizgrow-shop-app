@@ -83,7 +83,7 @@ export function ProductCarousel({ children, autoScroll = true, autoScrollInterva
 
       <div
         ref={scrollContainerRef}
-        className="flex gap-4 overflow-x-auto scrollbar-hide scroll-smooth snap-x snap-mandatory px-1"
+        className="flex gap-3 sm:gap-4 lg:gap-5 overflow-x-auto scrollbar-hide scroll-smooth snap-x snap-mandatory px-2 sm:px-1 lg:px-0"
         style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
       >
         {children}

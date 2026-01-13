@@ -35,7 +35,7 @@ export function ProductCard({
   isWishlisted = false,
 }: ProductCardProps) {
   return (
-    <Card className="overflow-hidden relative group h-[380px] flex flex-col rounded-2xl flex-shrink-0 snap-start min-w-[280px] w-[280px]">
+    <Card className=" py-2 overflow-hidden relative group h-[340px] sm:h-[360px]  lg:h-[380px] flex flex-col rounded-2xl flex-shrink-0 snap-start min-w-[180px] w-[180px] sm:min-w-[210px] sm:w-[210px] md:min-w-[230px] md:w-[230px] lg:min-w-[260px] lg:w-[260px] xl:min-w-[280px] xl:w-[280px]">
       <button
         onClick={(e) => {
           e.preventDefault()
@@ -49,12 +49,12 @@ export function ProductCard({
       </button>
 
       <Link href={`/products/${id}`} className="flex flex-col h-full">
-        <div className="h-48 relative bg-gradient-to-br from-purple-100 to-purple-200 flex-shrink-0">
-          <Image src={image || "/placeholder.svg"} alt={name} fill className="object-contain p-4" />
+        <div className="h-36 sm:h-40 lg:h-48 relative bg-gradient-to-br from-purple-100 to-purple-200 flex-shrink-0">
+          <Image src={image || "/placeholder.svg"} alt={name} fill className="object-contain p-3 sm:p-4" />
         </div>
 
-        <div className="p-4 space-y-2 flex-1 flex flex-col bg-white">
-          <h3 className="font-bold text-base line-clamp-2 text-balance min-h-[2.5rem]">{name}</h3>
+        <div className="p-3 sm:p-4 space-y-2 flex-1 flex flex-col bg-white">
+          <h3 className="font-bold text-sm sm:text-base line-clamp-2 text-balance min-h-[2.5rem]">{name}</h3>
 
           <div className="flex items-center gap-2 text-xs">
             {unit && <span className="text-muted-foreground font-medium">{unit}</span>}
@@ -70,7 +70,7 @@ export function ProductCard({
           <div className="mt-auto space-y-3 pt-2">
             <div className="flex items-center justify-between">
               <div className="flex items-baseline gap-2">
-                <span className="text-xl font-bold">₹{price}</span>
+                <span className="text-lg sm:text-xl font-bold">₹{price}</span>
                 {comparePrice && comparePrice > price && (
                   <span className="text-xs text-muted-foreground line-through">₹{comparePrice}</span>
                 )}
@@ -88,9 +88,9 @@ export function ProductCard({
                 e.preventDefault()
                 onAddToCart?.()
               }}
-              className="w-full bg-primary hover:bg-primary/90 h-10 text-sm font-semibold"
+              className="w-full bg-primary hover:bg-primary/90 h-9 sm:h-10 text-xs sm:text-sm font-semibold"
             >
-              ADD
+              ADD 
             </Button>
           </div>
         </div>

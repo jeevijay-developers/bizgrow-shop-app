@@ -171,7 +171,7 @@ export default function HomePage() {
 
             <ProductCarousel autoScroll autoScrollInterval={3000}>
               {popularProducts.map((product) => (
-                <div key={product.id} className="w-[170px] snap-start">
+                <div key={product.id} className="snap-start">
                   <ProductCard
                     {...product}
                     onAddToCart={() => addToCart(product)}
@@ -190,7 +190,7 @@ export default function HomePage() {
 
             <ProductCarousel autoScroll autoScrollInterval={3000}>
               {mostSellingProducts.map((product) => (
-                <div key={product.id} className="w-[170px] snap-start">
+                <div key={product.id} className="snap-start">
                   <ProductCard
                     {...product}
                     onAddToCart={() => addToCart(product)}

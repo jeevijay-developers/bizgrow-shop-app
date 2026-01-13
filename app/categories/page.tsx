@@ -1,5 +1,4 @@
 "use client"
-
 import { StoreHeader } from "@/components/store-header"
 import { BottomNavigation } from "@/components/bottom-navigation"
 import { DesktopSidebar } from "@/components/desktop-sidebar"
