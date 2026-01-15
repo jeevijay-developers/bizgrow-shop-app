@@ -28,6 +28,7 @@ export default function ProductDetailPage() {
     id: params.id as string,
     name: "Nike ACG 'Wolf Tree' Polartec",
     price: 250.0,
+    unit: "1 pc",
     rating: 5.0,
     reviews: 50,
     images: [
@@ -44,13 +45,16 @@ export default function ProductDetailPage() {
   }
 
   const handleAddToCart = () => {
-    addToCart({
-      ...product,
-      image: product.images[0],
+    addToCart(
+      {
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        unit: product.unit,
+        image: product.images[0] || "/placeholder.svg",
+      },
       quantity,
-      selectedColor,
-      selectedSize,
-    })
+    )
   }
 
   return (
@@ -124,7 +128,7 @@ export default function ProductDetailPage() {
                 </div>
               </div>
 
-              <div className="text-3xl font-bold">${product.price.toFixed(2)}</div>
+              <div className="text-3xl font-bold">₹{product.price.toFixed(2)}</div>
 
               {/* Color Selector */}
               <div className="space-y-2">
