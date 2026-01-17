@@ -6,17 +6,46 @@ import { Home, Grid3x3, ShoppingCart, User, Store } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCart } from "@/contexts/cart-context"
 import { Badge } from "@/components/ui/badge"
+import { useTenantSlug } from "@/lib/tenant"
+import { useEffect, useState } from "react"
+import { getStoreInfo } from "@/lib/store-api"
 
 export function DesktopSidebar() {
   const pathname = usePathname()
   const { getTotalItems } = useCart()
   const cartCount = getTotalItems()
+  const tenantSlug = useTenantSlug()
+
+  const [storeName, setStoreName] = useState("Shop Local")
+  const [storeTagline, setStoreTagline] = useState("Your Store")
+
+  useEffect(() => {
+    if (!tenantSlug) return
+    let cancelled = false
+    getStoreInfo(tenantSlug)
+      .then((store) => {
+        if (cancelled) return
+        setStoreName(store?.name || "Shop Local")
+        setStoreTagline(store?.slug || tenantSlug)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setStoreName("Shop Local")
+        setStoreTagline(tenantSlug)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [tenantSlug])
+
+  const withTenant = (path: string) => (tenantSlug ? `/store/${tenantSlug}${path}` : path)
 
   const navItems = [
-    { href: "/", icon: Home, label: "Home" },
-    { href: "/categories", icon: Grid3x3, label: "Categories" },
-    { href: "/cart", icon: ShoppingCart, label: "Cart", badge: cartCount },
-    { href: "/profile", icon: User, label: "Profile" },
+    { href: withTenant("/"), icon: Home, label: "Home" },
+    { href: withTenant("/categories"), icon: Grid3x3, label: "Categories" },
+    { href: withTenant("/cart"), icon: ShoppingCart, label: "Cart", badge: cartCount },
+    { href: withTenant("/profile"), icon: User, label: "Profile" },
   ]
 
   return (
@@ -27,8 +56,8 @@ export function DesktopSidebar() {
             <Store className="w-6 h-6 text-primary-foreground" />
           </div>
           <div>
-            <h1 className="font-bold text-lg">Shop Local</h1>
-            <p className="text-xs text-muted-foreground">Kirana Store</p>
+            <h1 className="font-bold text-lg">{storeName}</h1>
+            <p className="text-xs text-muted-foreground">{storeTagline}</p>
           </div>
         </div>
       </div>

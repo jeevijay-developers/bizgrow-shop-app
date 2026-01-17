@@ -16,6 +16,7 @@ interface ProductCardProps {
   unit?: string
   rating?: number
   reviews?: number
+  href?: string
   onAddToCart?: () => void
   onToggleWishlist?: () => void
   isWishlisted?: boolean
@@ -30,10 +31,13 @@ export function ProductCard({
   unit = "piece",
   rating,
   reviews,
+  href,
   onAddToCart,
   onToggleWishlist,
   isWishlisted = false,
 }: ProductCardProps) {
+  const linkHref = href || `/products/${id}`
+
   return (
     <Card className=" py-2 overflow-hidden relative group h-[340px] sm:h-[360px]  lg:h-[380px] flex flex-col rounded-2xl flex-shrink-0 snap-start min-w-[180px] w-[180px] sm:min-w-[210px] sm:w-[210px] md:min-w-[230px] md:w-[230px] lg:min-w-[260px] lg:w-[260px] xl:min-w-[280px] xl:w-[280px]">
       <button
@@ -48,8 +52,8 @@ export function ProductCard({
         />
       </button>
 
-      <Link href={`/products/${id}`} className="flex flex-col h-full">
-        <div className="h-36 sm:h-40 lg:h-48 relative bg-gradient-to-br from-purple-100 to-purple-200 flex-shrink-0">
+      <Link href={linkHref} className="flex flex-col h-full">
+        <div className="h-36 sm:h-40 lg:h-48 relative bg-white flex-shrink-0">
           <Image src={image || "/placeholder.svg"} alt={name} fill className="object-contain p-3 sm:p-4" />
         </div>
 

@@ -10,95 +10,61 @@ import { Card } from "@/components/ui/card"
 import { useCart } from "@/contexts/cart-context"
 import { useWishlist } from "@/contexts/wishlist-context"
 import Link from "next/link"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Image from "next/image"
+import { getStoreCatalog, getStoreCategories, type StoreProduct } from "@/lib/store-api"
+import { useTenantSlug } from "@/lib/tenant"
 
 export default function HomePage() {
   const { addToCart } = useCart()
   const { toggleWishlist, isWishlisted } = useWishlist()
   const [searchQuery, setSearchQuery] = useState("")
+  const tenantSlug = useTenantSlug()
+  const [categories, setCategories] = useState<string[]>([])
+  const [allProducts, setAllProducts] = useState<StoreProduct[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string>("")
 
-  const categories = [
-    { id: "1", name: "Vegetables & Fruit", image: "/fresh-vegetables-category.jpg" },
-    { id: "2", name: "Atta & Rice", image: "/atta-rice-category.jpg" },
-    { id: "3", name: "Dairy & Bread", image: "/dairy-bread-category.jpg" },
-    { id: "4", name: "Snacks & Drinks", image: "/snacks-drinks-category.jpg" },
-  ]
-
-  const popularProducts = [
-    {
-      id: "1",
-      name: "Fresh Carrots",
-      price: 45,
-      comparePrice: 65,
-      image: "/fresh-carrots-bundle.jpg",
-      unit: "500 g",
-      rating: 4.5,
-      reviews: 128,
-    },
-    {
-      id: "2",
-      name: "Whole Milk",
-      price: 64,
-      image: "/whole-milk-bottle.jpg",
-      unit: "1 L",
-      rating: 4.8,
-      reviews: 256,
-    },
-    {
-      id: "3",
-      name: "Amul Butter",
-      price: 54,
-      image: "/amul-butter-pack.jpg",
-      unit: "100 g",
-      rating: 4.7,
-      reviews: 189,
-    },
-  ]
-
-  const mostSellingProducts = [
-    {
-      id: "4",
-      name: "Hybrid Tomatoes",
-      price: 38,
-      image: "/hybrid-tomatoes.jpg",
-      unit: "1 kg",
-      rating: 4.6,
-      reviews: 342,
-    },
-    {
-      id: "5",
-      name: "Red Onions",
-      price: 42,
-      image: "/red-onions-fresh.jpg",
-      unit: "1 kg",
-      rating: 4.5,
-      reviews: 298,
-    },
-    {
-      id: "6",
-      name: "Fresh Potatoes",
-      price: 32,
-      image: "/fresh-potatoes-bag.jpg",
-      unit: "2 kg",
-      rating: 4.7,
-      reviews: 412,
-    },
-    {
-      id: "7",
-      name: "Robust Bananas",
-      price: 28,
-      image: "/robust-bananas-bunch.jpg",
-      unit: "6 units",
-      rating: 4.8,
-      reviews: 523,
-    },
-  ]
-
-  const allProducts = [...popularProducts, ...mostSellingProducts]
   const filteredProducts = searchQuery
     ? allProducts.filter((p) => p.name.toLowerCase().includes(searchQuery.toLowerCase()))
     : allProducts
+
+  const popularProducts = filteredProducts.slice(0, 6)
+  const mostSellingProducts = filteredProducts.slice(6, 12)
+
+  // Load categories once per tenant
+  useEffect(() => {
+    let cancelled = false
+    if (!tenantSlug) return
+
+    getStoreCategories(tenantSlug)
+      .then((cats) => {
+        if (!cancelled) setCategories(cats)
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err.message || "Failed to load categories")
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [tenantSlug])
+
+  // Load products with optional search
+  useEffect(() => {
+    const controller = new AbortController()
+    if (!tenantSlug) return
+
+    setLoading(true)
+    setError("")
+
+    getStoreCatalog({ tenantSlug, limit: 20, search: searchQuery || undefined, inStock: true, signal: controller.signal })
+      .then((res) => setAllProducts(res.items))
+      .catch((err) => setError(err.message || "Failed to load products"))
+      .finally(() => setLoading(false))
+
+    return () => controller.abort()
+  }, [tenantSlug, searchQuery])
 
   return (
     <div className="min-h-screen pb-20 lg:pb-0 bg-background">
@@ -116,8 +82,12 @@ export default function HomePage() {
                     Freshness delivered to your doorstep
                   </h2>
                   <div className="text-accent font-bold mb-3 text-sm">UP TO 30% OFF</div>
-                  <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90 font-semibold">
-                    Shop Now
+                  <Button
+                    size="sm"
+                    className="bg-accent text-accent-foreground hover:bg-accent/90 font-semibold"
+                    asChild
+                  >
+                    <Link href={tenantSlug ? `/${tenantSlug}/products` : "/products"}>Shop Now</Link>
                   </Button>
                 </div>
                 <div className="w-32 h-32 relative flex-shrink-0 ml-4">
@@ -137,27 +107,34 @@ export default function HomePage() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold">Shop by Category</h2>
               <Button variant="link" className="text-primary p-0 h-auto font-semibold" asChild>
-                <Link href="/categories">View All</Link>
+                <Link href={tenantSlug ? `/store/${tenantSlug}/categories` : "/categories"}>View All</Link>
               </Button>
             </div>
 
             <div className="grid grid-cols-4 gap-3">
-              {categories.map((category) => (
-                <Link href={`/categories/${category.id}`} key={category.id}>
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="w-16 h-16 rounded-full overflow-hidden bg-muted">
-                      <Image
-                        src={category.image || "/placeholder.svg"}
-                        alt={category.name}
-                        width={64}
-                        height={64}
-                        className="object-cover w-full h-full"
-                      />
+              {categories.length === 0 && !loading && <p className="col-span-4 text-sm text-muted-foreground">No categories yet.</p>}
+              {categories.map((name) => {
+                const categoryHref = tenantSlug
+                  ? `/store/${tenantSlug}/categories/${encodeURIComponent(name)}`
+                  : `/categories/${encodeURIComponent(name)}`
+
+                return (
+                  <Link href={categoryHref} key={name}>
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="w-16 h-16 rounded-full overflow-hidden bg-muted">
+                        <Image
+                          src="/placeholder.svg"
+                          alt={name}
+                          width={64}
+                          height={64}
+                          className="object-cover w-full h-full"
+                        />
+                      </div>
+                      <span className="text-xs font-medium text-center leading-tight">{name}</span>
                     </div>
-                    <span className="text-xs font-medium text-center leading-tight">{category.name}</span>
-                  </div>
-                </Link>
-              ))}
+                  </Link>
+                )
+              })}
             </div>
           </section>
 
@@ -165,22 +142,49 @@ export default function HomePage() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold">Popular Products</h2>
               <Button variant="link" className="text-primary p-0 h-auto font-semibold" asChild>
-                <Link href="/products">See More</Link>
+                <Link href={tenantSlug ? `/store/${tenantSlug}/products` : "/products"}>See More</Link>
               </Button>
             </div>
 
-            <ProductCarousel autoScroll autoScrollInterval={3000}>
-              {popularProducts.map((product) => (
-                <div key={product.id} className="snap-start">
-                  <ProductCard
-                    {...product}
-                    onAddToCart={() => addToCart(product)}
-                    onToggleWishlist={() => toggleWishlist(product.id)}
-                    isWishlisted={isWishlisted(product.id)}
-                  />
-                </div>
-              ))}
-            </ProductCarousel>
+            {loading && <p className="text-sm text-muted-foreground">Loading products...</p>}
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            {!loading && popularProducts.length === 0 && !error && (
+              <p className="text-sm text-muted-foreground">Products will appear here once added in the dashboard.</p>
+            )}
+            {popularProducts.length > 0 && (
+              <ProductCarousel autoScroll autoScrollInterval={3000}>
+                {popularProducts.map((product) => {
+                  const productHref = tenantSlug
+                    ? `/store/${tenantSlug}/products/${product.slug}`
+                    : `/products/${product.slug}`
+
+                  return (
+                    <div key={product.id} className="snap-start">
+                      <ProductCard
+                        id={product.id}
+                        name={product.name}
+                        price={product.price}
+                        comparePrice={product.comparePrice}
+                        image={product.image}
+                        unit={product.unit}
+                        href={productHref}
+                        onAddToCart={() =>
+                          addToCart({
+                            id: product.id,
+                            name: product.name,
+                            price: product.price,
+                            unit: product.unit || "piece",
+                            image: product.image,
+                          })
+                        }
+                        onToggleWishlist={() => toggleWishlist(product.id)}
+                        isWishlisted={isWishlisted(product.id)}
+                      />
+                    </div>
+                  )
+                })}
+              </ProductCarousel>
+            )}
           </section>
 
           <section className="px-4 py-4">
@@ -188,18 +192,40 @@ export default function HomePage() {
               <h2 className="text-lg font-bold">Most Selling</h2>
             </div>
 
-            <ProductCarousel autoScroll autoScrollInterval={3000}>
-              {mostSellingProducts.map((product) => (
-                <div key={product.id} className="snap-start">
-                  <ProductCard
-                    {...product}
-                    onAddToCart={() => addToCart(product)}
-                    onToggleWishlist={() => toggleWishlist(product.id)}
-                    isWishlisted={isWishlisted(product.id)}
-                  />
-                </div>
-              ))}
-            </ProductCarousel>
+            {mostSellingProducts.length > 0 && (
+              <ProductCarousel autoScroll autoScrollInterval={3000}>
+                {mostSellingProducts.map((product) => {
+                  const productHref = tenantSlug
+                    ? `/store/${tenantSlug}/products/${product.slug}`
+                    : `/products/${product.slug}`
+
+                  return (
+                    <div key={product.id} className="snap-start">
+                      <ProductCard
+                        id={product.id}
+                        name={product.name}
+                        price={product.price}
+                        comparePrice={product.comparePrice}
+                        image={product.image}
+                        unit={product.unit}
+                        href={productHref}
+                        onAddToCart={() =>
+                          addToCart({
+                            id: product.id,
+                            name: product.name,
+                            price: product.price,
+                            unit: product.unit || "piece",
+                            image: product.image,
+                          })
+                        }
+                        onToggleWishlist={() => toggleWishlist(product.id)}
+                        isWishlisted={isWishlisted(product.id)}
+                      />
+                    </div>
+                  )
+                })}
+              </ProductCarousel>
+            )}
           </section>
 
           <section className="px-4 py-4 pb-8">
@@ -219,7 +245,7 @@ export default function HomePage() {
                 <p className="text-sm text-muted-foreground mb-4">
                   Invite your neighbors to Biz Grow 360 and get ₹50 off your next order.
                 </p>
-                <Button className="w-full bg-primary hover:bg-primary/90">Refer Now</Button>
+                <Button className="w-[400px] bg-primary hover:bg-primary/90">Refer Now</Button>
               </div>
             </Card>
           </section>

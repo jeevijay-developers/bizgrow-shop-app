@@ -7,103 +7,56 @@ import { ProductCard } from "@/components/product-card"
 import { useCart } from "@/contexts/cart-context"
 import { useWishlist } from "@/contexts/wishlist-context"
 import { Button } from "@/components/ui/button"
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { getStoreCatalog, type StoreProduct } from "@/lib/store-api"
+import { useTenantSlug } from "@/lib/tenant"
 
 export default function ProductsPage() {
   const { addToCart } = useCart()
   const { toggleWishlist, isWishlisted } = useWishlist()
   const [filter, setFilter] = useState<"all" | "sale">("all")
+  const [page, setPage] = useState(1)
+  const [search, setSearch] = useState("")
+  const tenantSlug = useTenantSlug()
+  const [products, setProducts] = useState<StoreProduct[]>([])
+  const [pagination, setPagination] = useState<{ page: number; pages: number } | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string>("")
 
-  // Mock products data - would come from API
-  const allProducts = [
-    {
-      id: "1",
-      name: "Fresh Tomatoes",
-      price: 40,
-      comparePrice: 50,
-      image: "/fresh-red-tomatoes.jpg",
-      unit: "kg",
-      rating: 4.5,
-      reviews: 128,
-    },
-    {
-      id: "2",
-      name: "Tata Salt",
-      price: 22,
-      comparePrice: 25,
-      image: "/tata-salt-packet.jpg",
-      unit: "1kg",
-      rating: 4.8,
-      reviews: 256,
-    },
-    {
-      id: "3",
-      name: "Amul Milk",
-      price: 28,
-      image: "/amul-milk-packet.jpg",
-      unit: "500ml",
-      rating: 4.7,
-      reviews: 189,
-    },
-    {
-      id: "4",
-      name: "Aashirvaad Atta",
-      price: 280,
-      comparePrice: 310,
-      image: "/aashirvaad-atta-flour.jpg",
-      unit: "5kg",
-      rating: 4.6,
-      reviews: 342,
-    },
-    {
-      id: "5",
-      name: "Fresh Onions",
-      price: 35,
-      comparePrice: 42,
-      image: "/fresh-onions.png",
-      unit: "kg",
-      rating: 4.4,
-      reviews: 95,
-    },
-    {
-      id: "6",
-      name: "Basmati Rice",
-      price: 180,
-      comparePrice: 200,
-      image: "/basmati-rice-bag.jpg",
-      unit: "5kg",
-      rating: 4.7,
-      reviews: 203,
-    },
-    {
-      id: "7",
-      name: "Fortune Oil",
-      price: 145,
-      image: "/cooking-oil-bottle.png",
-      unit: "1L",
-      rating: 4.5,
-      reviews: 167,
-    },
-    {
-      id: "8",
-      name: "Fresh Potatoes",
-      price: 30,
-      comparePrice: 35,
-      image: "/fresh-potatoes.png",
-      unit: "kg",
-      rating: 4.3,
-      reviews: 84,
-    },
-  ]
+  const filteredProducts = filter === "sale"
+    ? products.filter((p) => p.comparePrice && p.comparePrice > p.price)
+    : products
 
-  const products = filter === "sale" ? allProducts.filter((p) => p.comparePrice) : allProducts
+  useEffect(() => {
+    const controller = new AbortController()
+    if (!tenantSlug) return
+
+    setLoading(true)
+    setError("")
+
+    getStoreCatalog({ tenantSlug, page, limit: 24, search: search || undefined, inStock: true, signal: controller.signal })
+      .then((res) => {
+        setProducts((prev) => (page === 1 ? res.items : [...prev, ...res.items]))
+        setPagination({ page: res.pagination.page, pages: res.pagination.pages })
+      })
+      .catch((err) => setError(err.message || "Failed to load products"))
+      .finally(() => setLoading(false))
+
+    return () => controller.abort()
+  }, [tenantSlug, page, search])
+
+  const handleSearch = (query: string) => {
+    setPage(1)
+    setProducts([])
+    setSearch(query)
+  }
 
   return (
     <div className="min-h-screen pb-20 lg:pb-0">
       <DesktopSidebar />
 
       <div className="lg:ml-64">
-        <StoreHeader title="All Products" showBack showSearch />
+        <StoreHeader title="All Products" showBack showSearch onSearch={handleSearch} />
 
         <main className="max-w-md lg:max-w-7xl mx-auto px-4 py-4">
           <div className="flex gap-2 mb-4">
@@ -120,16 +73,49 @@ export default function ProductsPage() {
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-            {products.map((product) => (
-              <ProductCard
-                key={product.id}
-                {...product}
-                onAddToCart={() => addToCart(product)}
-                onToggleWishlist={() => toggleWishlist(product.id)}
-                isWishlisted={isWishlisted(product.id)}
-              />
-            ))}
+            {loading && <p className="col-span-2 text-sm text-muted-foreground">Loading products...</p>}
+            {error && <p className="col-span-2 text-sm text-destructive">{error}</p>}
+            {!loading && filteredProducts.length === 0 && !error && (
+              <p className="col-span-2 text-sm text-muted-foreground">No products found.</p>
+            )}
+            {filteredProducts.map((product) => {
+              const productHref = tenantSlug
+                ? `/store/${tenantSlug}/products/${product.slug}`
+                : `/products/${product.slug}`
+
+              return (
+                <ProductCard
+                  key={product.id}
+                  id={product.id}
+                  name={product.name}
+                  price={product.price}
+                  comparePrice={product.comparePrice}
+                  image={product.image}
+                  unit={product.unit}
+                  href={productHref}
+                  onAddToCart={() =>
+                    addToCart({
+                      id: product.id,
+                      name: product.name,
+                      price: product.price,
+                      unit: product.unit || "piece",
+                      image: product.image,
+                    })
+                  }
+                  onToggleWishlist={() => toggleWishlist(product.id)}
+                  isWishlisted={isWishlisted(product.id)}
+                />
+              )
+            })}
           </div>
+
+          {pagination && pagination.pages > pagination.page && (
+            <div className="flex justify-center mt-6">
+              <Button onClick={() => setPage((p) => p + 1)} disabled={loading} variant="outline">
+                Load more
+              </Button>
+            </div>
+          )}
         </main>
       </div>
 

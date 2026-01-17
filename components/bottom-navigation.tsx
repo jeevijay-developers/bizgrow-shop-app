@@ -4,18 +4,22 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { useCart } from "@/contexts/cart-context"
+import { useTenantSlug } from "@/lib/tenant"
 
 export function BottomNavigation() {
   const pathname = usePathname()
   const { getTotalItems } = useCart()
   const cartCount = getTotalItems()
+  const tenantSlug = useTenantSlug()
+
+  const withTenant = (path: string) => (tenantSlug ? `/store/${tenantSlug}${path}` : path)
 
   const navItems = [
-    { href: "/", icon: "home", label: "Home" },
-    { href: "/categories", icon: "grid_view", label: "Categories" },
-    { href: "/orders", icon: "receipt_long", label: "Orders" },
-    { href: "/cart", icon: "shopping_cart", label: "Cart", badge: cartCount },
-    { href: "/profile", icon: "person_outline", label: "Profile" },
+    { href: withTenant("/"), icon: "home", label: "Home" },
+    { href: withTenant("/categories"), icon: "grid_view", label: "Categories" },
+    { href: withTenant("/orders"), icon: "receipt_long", label: "Orders" },
+    { href: withTenant("/cart"), icon: "shopping_cart", label: "Cart", badge: cartCount },
+    { href: withTenant("/profile"), icon: "person_outline", label: "Profile" },
   ]
 
   return (

@@ -1,57 +1,59 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { StoreHeader } from "@/components/store-header"
 import { BottomNavigation } from "@/components/bottom-navigation"
 import { DesktopSidebar } from "@/components/desktop-sidebar"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Heart, Minus, Plus, Star } from "lucide-react"
 import Image from "next/image"
 import { useCart } from "@/contexts/cart-context"
 import { useWishlist } from "@/contexts/wishlist-context"
 import { useParams } from "next/navigation"
+import { getStoreProduct, type StoreProduct } from "@/lib/store-api"
+import { useTenantSlug } from "@/lib/tenant"
 
 export default function ProductDetailPage() {
   const params = useParams()
   const { addToCart } = useCart()
   const { toggleWishlist, isWishlisted } = useWishlist()
+  const tenantSlug = useTenantSlug()
 
   const [selectedImage, setSelectedImage] = useState(0)
   const [quantity, setQuantity] = useState(1)
-  const [selectedColor, setSelectedColor] = useState("Black")
-  const [selectedSize, setSelectedSize] = useState("Medium")
+  const [product, setProduct] = useState<StoreProduct | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string>("")
+  const productSlug = useMemo(() => decodeURIComponent(params.id as string), [params.id])
 
-  // Mock product data - replace with API call
-  const product = {
-    id: params.id as string,
-    name: "Nike ACG 'Wolf Tree' Polartec",
-    price: 250.0,
-    unit: "1 pc",
-    rating: 5.0,
-    reviews: 50,
-    images: [
-      "/placeholder.svg?height=400&width=400",
-      "/placeholder.svg?height=400&width=400",
-      "/placeholder.svg?height=400&width=400",
-      "/placeholder.svg?height=400&width=400",
-      "/placeholder.svg?height=400&width=400",
-    ],
-    colors: ["Black", "Blue", "Red"],
-    sizes: ["Small", "Medium", "Large", "XL"],
-    description:
-      "Crossing hardwood comfort with off-court flair. '80s-inspired construction, bold details and nothin'-but-net style.",
-  }
+  useEffect(() => {
+    const controller = new AbortController()
+    if (!tenantSlug || !productSlug) return
+
+    setLoading(true)
+    setError("")
+    getStoreProduct(tenantSlug, productSlug, controller.signal)
+      .then((p) => {
+        setProduct(p)
+        setSelectedImage(0)
+      })
+      .catch((err) => setError(err.message || "Failed to load product"))
+      .finally(() => setLoading(false))
+
+    return () => controller.abort()
+  }, [tenantSlug, productSlug])
 
   const handleAddToCart = () => {
+    if (!product) return
+
     addToCart(
       {
         id: product.id,
         name: product.name,
         price: product.price,
-        unit: product.unit,
-        image: product.images[0] || "/placeholder.svg",
+        unit: product.unit || "piece",
+        image: product.image || "/placeholder.svg",
       },
       quantity,
     )
@@ -69,100 +71,84 @@ export default function ProductDetailPage() {
             {/* Main Image */}
             <div className="relative h-80 lg:h-96 bg-gradient-to-br from-purple-200 to-purple-300">
               <button
-                onClick={() => toggleWishlist(product.id)}
+                onClick={() => product && toggleWishlist(product.id)}
                 className="absolute top-4 right-4 z-10 bg-white rounded-full p-2.5 shadow-md hover:scale-110 transition-transform"
+                disabled={!product}
               >
                 <Heart
-                  className={`w-6 h-6 ${isWishlisted(product.id) ? "fill-red-500 text-red-500" : "text-gray-400"}`}
+                  className={`w-6 h-6 ${
+                    product && isWishlisted(product.id) ? "fill-red-500 text-red-500" : "text-gray-400"
+                  }`}
                 />
               </button>
               <Image
-                src={product.images[selectedImage] || "/placeholder.svg"}
-                alt={product.name}
+                src={(product?.images?.[selectedImage]?.url || product?.image || "/placeholder.svg") as string}
+                alt={product?.name || "Product"}
                 fill
                 className="object-contain p-8"
               />
 
               {/* Image dots indicator */}
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-                {product.images.map((_, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setSelectedImage(idx)}
-                    className={`w-2 h-2 rounded-full transition-all ${
-                      idx === selectedImage ? "bg-primary w-6" : "bg-white/50"
-                    }`}
-                  />
-                ))}
-              </div>
+              {product?.images?.length ? (
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+                  {product.images.map((_, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setSelectedImage(idx)}
+                      className={`w-2 h-2 rounded-full transition-all ${
+                        idx === selectedImage ? "bg-primary w-6" : "bg-white/50"
+                      }`}
+                    />
+                  ))}
+                </div>
+              ) : null}
             </div>
 
             {/* Thumbnail Gallery */}
-            <div className="flex gap-2 p-4 overflow-x-auto">
-              {product.images.map((img, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setSelectedImage(idx)}
-                  className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${
-                    idx === selectedImage ? "border-primary" : "border-transparent"
-                  }`}
-                >
-                  <Image
-                    src={img || "/placeholder.svg"}
-                    alt={`${product.name} ${idx + 1}`}
-                    width={64}
-                    height={64}
-                    className="object-cover"
-                  />
-                </button>
-              ))}
-            </div>
+            {product?.images?.length ? (
+              <div className="flex gap-2 p-4 overflow-x-auto">
+                {product.images.map((img, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setSelectedImage(idx)}
+                    className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${
+                      idx === selectedImage ? "border-primary" : "border-transparent"
+                    }`}
+                  >
+                    <Image
+                      src={img.url || "/placeholder.svg"}
+                      alt={`${product.name} ${idx + 1}`}
+                      width={64}
+                      height={64}
+                      className="object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            ) : null}
 
             {/* Product Info */}
             <div className="p-4 space-y-4">
               <div className="flex items-start justify-between">
-                <h1 className="text-xl font-bold text-balance pr-2">{product.name}</h1>
-                <div className="flex items-center gap-1 text-sm flex-shrink-0">
-                  <Star className="w-4 h-4 fill-secondary text-secondary" />
-                  <span className="font-semibold">{product.rating}</span>
-                </div>
+                <h1 className="text-xl font-bold text-balance pr-2">{product?.name || "Product"}</h1>
+                {product?.isActive && (
+                  <div className="flex items-center gap-1 text-sm flex-shrink-0">
+                    <Star className="w-4 h-4 fill-secondary text-secondary" />
+                    <span className="font-semibold">4.8</span>
+                  </div>
+                )}
               </div>
 
-              <div className="text-3xl font-bold">₹{product.price.toFixed(2)}</div>
+              {error && <p className="text-sm text-destructive">{error}</p>}
+              {loading && <p className="text-sm text-muted-foreground">Loading product...</p>}
 
-              {/* Color Selector */}
-              <div className="space-y-2">
-                <label className="text-sm font-semibold">Color</label>
-                <Select value={selectedColor} onValueChange={setSelectedColor}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {product.colors.map((color) => (
-                      <SelectItem key={color} value={color}>
-                        {color}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <div className="text-3xl font-bold">₹{product?.price?.toFixed(2) || "0.00"}</div>
 
-              {/* Size Selector */}
-              <div className="space-y-2">
-                <label className="text-sm font-semibold">Size</label>
-                <Select value={selectedSize} onValueChange={setSelectedSize}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {product.sizes.map((size) => (
-                      <SelectItem key={size} value={size}>
-                        {size}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {product?.comparePrice && product.comparePrice > product.price && (
+                <p className="text-sm text-muted-foreground line-through">MRP ₹{product.comparePrice}</p>
+              )}
+
+              {product?.description && <p className="text-sm text-muted-foreground">{product.description}</p>}
 
               {/* Quantity Selector */}
               <div className="space-y-2">
@@ -184,7 +170,7 @@ export default function ProductDetailPage() {
               </div>
 
               {/* Add to Cart Button */}
-              <Button onClick={handleAddToCart} className="w-full h-12 text-base font-semibold">
+              <Button onClick={handleAddToCart} disabled={!product || loading} className="w-full h-12 text-base font-semibold">
                 Add to cart
               </Button>
             </div>
